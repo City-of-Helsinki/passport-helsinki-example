@@ -10,17 +10,20 @@ var Strategy = require('passport-helsinki').Strategy;
 // behalf, along with the user's profile.  The function must invoke `cb`
 // with a user object, which will be set at `req.user` in route handlers after
 // authentication.
-passport.use(new Strategy({
+helsinkiStrategy = new Strategy({
     clientID: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
     callbackURL: 'http://localhost:3000/login/helsinki/return',
     authorizationURL: 'http://localhost:8000/oauth2/authorize/',
     tokenURL: 'http://localhost:8000/oauth2/token/',
-    userProfileURL: 'http://localhost:8000/user/'
+    userProfileURL: 'http://localhost:8000/user/',
+    appTokenURL: 'http://localhost:8000/jwt-token/'
   },
   function(accessToken, refreshToken, profile, cb) {
+    profile.accessToken = accessToken;
     return cb(null, profile);
-  }));
+  });
+passport.use(helsinkiStrategy);
 
 
 // Configure Passport authenticated session persistence.
@@ -30,7 +33,7 @@ passport.use(new Strategy({
 // production-quality application, this would typically be as simple as
 // supplying the user ID when serializing, and querying the user record by ID
 // from the database when deserializing.  However, due to the fact that this
-// example does not have a database, the complete Twitter profile is serialized
+// example does not have a database, the complete profile is serialized
 // and deserialized.
 passport.serializeUser(function(user, cb) {
   cb(null, user);
@@ -83,8 +86,10 @@ app.get('/login/helsinki/return',
 
 app.get('/profile',
   require('connect-ensure-login').ensureLoggedIn(),
-  function(req, res){
-    res.render('profile', { user: req.user });
-  });
+  function(req, res) {
+    helsinkiStrategy.getAPIToken(req.user.accessToken, 'TH11btLwVBZyTCVDMshRaWMIqctoNIyy3xQBvKDD', function(token) {
+      res.render('profile', { user: req.user, token: token });
+    });
+});
 
 app.listen(3000);
